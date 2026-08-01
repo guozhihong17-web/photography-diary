@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 import crypto from 'crypto';
 
 const TOKEN_NAME = 'auth_token';
@@ -16,27 +17,34 @@ export function verifyPassword(password: string): boolean {
   return password === PASSWORD;
 }
 
-export async function setAuthCookie(): Promise<void> {
-  const token = createToken(PASSWORD);
-  const cookieStore = await cookies();
-  cookieStore.set(TOKEN_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 24 * 60 * 60,
-    path: '/',
-  });
+/** 返回用于设置认证 cookie 的配置对象 */
+export function getAuthCookieOptions(): { name: string; value: string; options: Partial<ResponseCookie> } {
+  return {
+    name: TOKEN_NAME,
+    value: createToken(PASSWORD),
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',  // 'lax' 比 'strict' 兼容性更好
+      maxAge: 24 * 60 * 60,
+      path: '/',
+    },
+  };
 }
 
-export async function clearAuthCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(TOKEN_NAME, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 0,
-    path: '/',
-  });
+/** 返回用于清除认证 cookie 的配置对象 */
+export function getClearCookieOptions(): { name: string; value: string; options: Partial<ResponseCookie> } {
+  return {
+    name: TOKEN_NAME,
+    value: '',
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    },
+  };
 }
 
 export async function isAuthenticated(): Promise<boolean> {

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPassword, setAuthCookie } from '@/lib/auth';
+import { verifyPassword, getAuthCookieOptions } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
   if (verifyPassword(password)) {
-    await setAuthCookie();
-    return NextResponse.json({ success: true });
+    const { name, value, options } = getAuthCookieOptions();
+    const response = NextResponse.json({ success: true });
+    response.cookies.set(name, value, options);
+    return response;
   }
 
   return NextResponse.json({ error: '密码错误' }, { status: 401 });
