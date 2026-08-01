@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="摄影日记 — 个人摄影作品集">
+  <title>摄影日记</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="site-logo">📷 <span>摄影</span>日记</a>
+      <nav class="header-nav">
+        <a href="/admin.html" class="admin-link" title="管理后台">管理</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 英雄区 -->
+  <section class="hero">
+    <h1>用光影记录世界</h1>
+    <p>每一张照片，都是时光的标本。这里收集了我镜头下的风景、人像与故事。</p>
+  </section>
+
+  <!-- 分类筛选 -->
+  <nav class="category-nav" id="categoryNav">
+    <button class="category-btn active" data-category="all">全部</button>
+  </nav>
+
+  <!-- 画廊 -->
+  <main class="gallery-container">
+    <div class="masonry-grid" id="masonryGrid"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <div class="icon">📸</div>
+      <h2>暂无作品</h2>
+      <p>精彩的作品即将上线，敬请期待</p>
+    </div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>加载中...</p>
+    </div>
+  </main>
+
+  <!-- 灯箱 -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <button class="lightbox-close" id="lightboxClose" aria-label="关闭">✕</button>
+    <button class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="上一张">‹</button>
+    <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="下一张">›</button>
+    <div class="lightbox-img-wrap">
+      <img id="lightboxImg" src="" alt="">
+      <div class="lightbox-caption">
+        <h3 id="lightboxTitle"></h3>
+        <p id="lightboxDesc"></p>
+      </div>
+    </div>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+  </div>
+
+  <!-- 页脚 -->
+  <footer class="site-footer">
+    <p>© 2026 摄影日记 · 版权所有</p>
+  </footer>
+
+  <script src="/js/gallery.js"></script>
+</body>
+</html>
