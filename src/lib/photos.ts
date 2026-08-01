@@ -12,17 +12,20 @@ const STORAGE_BASE =
 const DATA_DIR = path.join(process.cwd(), 'data');
 const PHOTOS_FILE = path.join(DATA_DIR, 'photos.json');
 
-// 确保数据目录存在（本地开发用）
+/** 安全写入（Vercel 文件系统只读时静默失败） */
+function safeWrite(fn: () => void): void {
+  try { fn(); } catch { /* Vercel 只读文件系统，静默跳过 */ }
+}
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    safeWrite(() => fs.mkdirSync(DATA_DIR, { recursive: true }));
   }
   if (!fs.existsSync(PHOTOS_FILE)) {
-    fs.writeFileSync(PHOTOS_FILE, '[]', 'utf-8');
+    safeWrite(() => fs.writeFileSync(PHOTOS_FILE, '[]', 'utf-8'));
   }
 }
 
-/** 读取本地 photos.json */
 function readLocalPhotos(): Photo[] {
   try {
     ensureDataDir();
@@ -33,48 +36,52 @@ function readLocalPhotos(): Photo[] {
   }
 }
 
-/** 写入本地 photos.json */
 function writeLocalPhotos(photos: Photo[]): void {
-  ensureDataDir();
-  fs.writeFileSync(PHOTOS_FILE, JSON.stringify(photos, null, 2), 'utf-8');
+  safeWrite(() => {
+    ensureDataDir();
+    fs.writeFileSync(PHOTOS_FILE, JSON.stringify(photos, null, 2), 'utf-8');
+  });
 }
 
 /**
  * 读取所有照片（云端 + 本地）
- * 本地 photos.json 中的照片如果已迁移到 Cloudinary 则跳过
+ * Cloudinary 配置时以云端为准：已从云端删除的照片不会出现在列表中
  */
 export async function readPhotos(): Promise<Photo[]> {
   const localPhotos = readLocalPhotos();
 
-  // 如果 Cloudinary 已配置，同时获取云端照片
   if (isCloudinaryConfigured()) {
     const resources = await listCloudPhotos();
     const cloudPhotos = resources.map((r) =>
       resourceToPhoto(r, r.public_id.replace(/^.*\//, ''))
     );
 
-    // 已有 publicId 的本地照片在云端也会显示，去重（按 publicId）
+    const cloudPublicIds = new Set(cloudPhotos.map((p) => p.publicId));
+
+    // 本地照片：只保留未迁移的，或云端仍然存在的（已删除的过滤掉）
+    const validLocalPhotos = localPhotos.filter((p) => {
+      if (!p.publicId) return true;
+      return cloudPublicIds.has(p.publicId);
+    });
+
+    // 去重
     const localPublicIds = new Set(
-      localPhotos.map((p) => p.publicId).filter(Boolean)
+      validLocalPhotos.map((p) => p.publicId).filter(Boolean)
     );
     const newCloudPhotos = cloudPhotos.filter(
       (p) => !localPublicIds.has(p.publicId)
     );
 
-    return [...localPhotos, ...newCloudPhotos];
+    return [...validLocalPhotos, ...newCloudPhotos];
   }
 
   return localPhotos;
 }
 
-/**
- * 读取本地照片（同步，用于不需要云端数据的场景）
- */
 export function readLocalPhotosSync(): Photo[] {
   return readLocalPhotos();
 }
 
-/** 写入本地 photos.json（向后兼容旧 API） */
 export function writePhotos(photos: Photo[]): void {
   writeLocalPhotos(photos);
 }
@@ -83,7 +90,6 @@ export function getPhotoById(allPhotos: Photo[], id: string): Photo | undefined 
   return allPhotos.find((p) => p.id === id);
 }
 
-/** 添加照片到本地存储 */
 export function addLocalPhotos(newPhotos: Photo[]): Photo[] {
   const photos = readLocalPhotos();
   photos.push(...newPhotos);
@@ -91,7 +97,6 @@ export function addLocalPhotos(newPhotos: Photo[]): Photo[] {
   return newPhotos;
 }
 
-/** 更新本地照片信息 */
 export function updateLocalPhoto(
   id: string,
   updates: Partial<Pick<Photo, 'title' | 'description' | 'category'>>
@@ -109,7 +114,6 @@ export function updateLocalPhoto(
   return photos[index];
 }
 
-/** 删除本地照片（含文件） */
 export function deleteLocalPhoto(id: string): Photo | null {
   const photos = readLocalPhotos();
   const index = photos.findIndex((p) => p.id === id);
@@ -118,18 +122,19 @@ export function deleteLocalPhoto(id: string): Photo | null {
   const [deleted] = photos.splice(index, 1);
   writeLocalPhotos(photos);
 
+  // 删除本地文件（Vercel 上文件系统只读，静默跳过）
   if (deleted.thumbFilename || deleted.filename) {
     const uploadsDir = path.join(STORAGE_BASE, 'uploads');
     if (deleted.filename) {
-      const originalPath = path.join(uploadsDir, 'originals', deleted.filename);
       try {
-        if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+        const p = path.join(uploadsDir, 'originals', deleted.filename);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
       } catch {}
     }
     if (deleted.thumbFilename) {
-      const thumbPath = path.join(uploadsDir, 'thumbnails', deleted.thumbFilename);
       try {
-        if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+        const p = path.join(uploadsDir, 'thumbnails', deleted.thumbFilename);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
       } catch {}
     }
   }
@@ -142,9 +147,7 @@ export async function getCategories(): Promise<string[]> {
   return [...new Set(photos.map((p) => p.category).filter(Boolean))];
 }
 
-export async function getPhotosByCategory(
-  category: string
-): Promise<Photo[]> {
+export async function getPhotosByCategory(category: string): Promise<Photo[]> {
   const photos = await readPhotos();
   const filtered =
     !category || category === 'all'
