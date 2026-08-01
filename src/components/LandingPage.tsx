@@ -4,13 +4,10 @@ import Link from 'next/link';
 
 /**
  * 着陆页 — 全屏背景 + 居中 Explore 按钮
- * 背景图：挪威罗弗敦群岛晚霞全景
- *
- * 替换背景图：修改下方 BACKGROUND_IMAGE_URL，或放置本地图片到 /public/bg.jpg
- * 然后改为 BACKGROUND_IMAGE_URL = '/bg.jpg'
+ * 背景图：罗弗敦群岛亨宁斯韦尔晚霞全景
+ * 替换图片：将新图片放入 public/bg.png 即可
  */
-const BACKGROUND_IMAGE_URL =
-  'https://images.unsplash.com/photo-1520769669658-f07657f5a307?auto=format&fit=crop&w=1920&q=80';
+const BACKGROUND_IMAGE_URL = '/bg.png';
 
 export default function LandingPage() {
   return (
