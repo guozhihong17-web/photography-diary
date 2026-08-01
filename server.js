@@ -142,15 +142,32 @@ app.post('/api/upload', requireAuth, upload.array('photos', 20), async (req, res
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
       const id = uuidv4();
+      const displayFilename = `display_${file.filename}`;
       const thumbFilename = `thumb_${file.filename}`;
+      const displayPath = path.join(ORIGINALS_DIR, displayFilename);
       const thumbPath = path.join(THUMBS_DIR, thumbFilename);
 
-      // 用 sharp 生成缩略图
+      // 压缩配置（环境变量控制，方便以后调整）
+      // 想保留原图时设 IMAGE_MAX_WIDTH=99999 IMAGE_QUALITY=100
+      const MAX_WIDTH = parseInt(process.env.IMAGE_MAX_WIDTH) || 2400;
+      const QUALITY = parseInt(process.env.IMAGE_QUALITY) || 80;
+
       const imgMeta = await sharp(file.path).metadata();
+
+      // 生成展示图
+      const displayInfo = await sharp(file.path)
+        .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+        .jpeg({ quality: QUALITY, progressive: true })
+        .toFile(displayPath);
+
+      // 生成缩略图：600px 宽
       await sharp(file.path)
         .resize({ width: 600, withoutEnlargement: true })
         .jpeg({ quality: 85 })
         .toFile(thumbPath);
+
+      // 删除 multer 临时文件（只保留展示图和缩略图）
+      try { fs.unlinkSync(file.path); } catch {}
 
       const meta = metadataList[i] || {};
       const title = meta.title || path.parse(file.originalname).name;
@@ -159,14 +176,16 @@ app.post('/api/upload', requireAuth, upload.array('photos', 20), async (req, res
 
       const photo = {
         id,
-        filename: file.filename,
+        filename: displayFilename,
         thumbFilename,
         title,
         description,
         category,
         uploadedAt: new Date().toISOString(),
-        width: imgMeta.width,
-        height: imgMeta.height,
+        width: displayInfo.width,
+        height: imgMeta.height * (displayInfo.width / imgMeta.width), // 等比高度
+        originalWidth: imgMeta.width,
+        originalHeight: imgMeta.height,
         originalName: file.originalname
       };
 
