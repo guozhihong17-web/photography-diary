@@ -1,21 +1,32 @@
 {
-  "name": "photography-portfolio",
-  "version": "1.0.0",
-  "description": "摄影师个人作品展示网站",
-  "main": "server.js",
+  "name": "photography-diary",
+  "version": "2.0.0",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "express-session": "^1.18.0",
-    "multer": "^1.4.5-lts.1",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "sharp": "^0.33.5",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "multer": "^1.4.5-lts.1",
+    "express-session": "^1.18.0"
   },
-  "allowScripts": {
-    "sharp@0.33.5": true
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^10.0.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.1.0"
   }
 }
