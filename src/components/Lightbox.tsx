@@ -1,6 +1,7 @@
 'use client';
 
 import { Photo } from '@/types';
+import { getPhotoSrc } from '@/lib/cloudinary-url';
 import { useState, useEffect, useCallback } from 'react';
 
 interface LightboxProps {
@@ -42,7 +43,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
     [prev, next].forEach(p => {
       if (p) {
         const img = new Image();
-        img.src = `/uploads/originals/${p.filename}`;
+        img.src = getPhotoSrc(p, 'display');
       }
     });
   }, [currentIndex, photos]);
@@ -92,7 +93,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
       {/* 图片 */}
       <div className="relative max-w-[90vw] max-h-[85vh]">
         <img
-          src={`/uploads/originals/${photo.filename}`}
+          src={getPhotoSrc(photo, 'display')}
           alt={photo.title}
           className="max-w-[90vw] max-h-[85vh] object-contain rounded-sm"
         />

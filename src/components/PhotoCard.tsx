@@ -1,4 +1,5 @@
 import { Photo } from '@/types';
+import { getPhotoSrc } from '@/lib/cloudinary-url';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -12,7 +13,7 @@ export default function PhotoCard({ photo, onClick }: PhotoCardProps) {
       onClick={onClick}
     >
       <img
-        src={`/uploads/thumbnails/${photo.thumbFilename}`}
+        src={getPhotoSrc(photo, 'thumb')}
         alt={photo.title}
         loading="lazy"
         className="w-full h-auto block group-hover:brightness-50 transition-all duration-300"

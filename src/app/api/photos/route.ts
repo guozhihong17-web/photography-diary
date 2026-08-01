@@ -4,13 +4,19 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import { isAuthenticated } from '@/lib/auth';
-import { readPhotos, writePhotos, getPhotosByCategory, getUploadsDir } from '@/lib/photos';
+import {
+  readPhotos,
+  addLocalPhotos,
+  getPhotosByCategory,
+  getUploadsDir,
+} from '@/lib/photos';
+import { isCloudinaryConfigured, uploadImage } from '@/lib/cloudinary';
 
 // GET /api/photos — 获取照片列表
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category') || 'all';
-  const photos = getPhotosByCategory(category);
+  const photos = await getPhotosByCategory(category);
   return NextResponse.json(photos);
 }
 
@@ -23,20 +29,67 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('photos') as File[];
-    const metadataStr = formData.get('metadata') as string || '[]';
+    const metadataStr = (formData.get('metadata') as string) || '[]';
     const metadataList = JSON.parse(metadataStr);
 
+    const useCloudinary = isCloudinaryConfigured();
+
+    if (useCloudinary) {
+      // ====== Cloudinary 上传路径 ======
+      const newPhotos = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!(file instanceof File)) continue;
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const id = uuidv4();
+        const meta = metadataList[i] || {};
+        const originalName = file.name;
+        const title = meta.title || originalName.replace(/\.[^.]+$/, '');
+        const description = meta.description || '';
+        const category = meta.category || '未分类';
+
+        const result = await uploadImage(buffer, {
+          title,
+          description,
+          category,
+          originalName,
+        });
+
+        const photo = {
+          id,
+          publicId: result.publicId,
+          title,
+          description,
+          category,
+          uploadedAt: new Date().toISOString(),
+          width: result.width,
+          height: result.height,
+          originalWidth: result.width,
+          originalHeight: result.height,
+          originalName,
+        };
+
+        addLocalPhotos([photo]);
+        newPhotos.push(photo);
+      }
+
+      return NextResponse.json({ success: true, photos: newPhotos });
+    }
+
+    // ====== 本地文件系统上传路径（兼容 Railway / 本地开发）======
     const MAX_WIDTH = parseInt(process.env.IMAGE_MAX_WIDTH || '2400');
     const QUALITY = parseInt(process.env.IMAGE_QUALITY || '80');
     const uploadsDir = getUploadsDir();
     const originalsDir = path.join(uploadsDir, 'originals');
     const thumbsDir = path.join(uploadsDir, 'thumbnails');
 
-    [uploadsDir, originalsDir, thumbsDir].forEach(d => {
+    [uploadsDir, originalsDir, thumbsDir].forEach((d) => {
       if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
     });
 
-    const photos = readPhotos();
+    const allPhotos = await readPhotos();
     const newPhotos = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -50,26 +103,22 @@ export async function POST(request: NextRequest) {
       const displayPath = path.join(originalsDir, displayFilename);
       const thumbPath = path.join(thumbsDir, thumbFilename);
 
-      // 生成展示图
       const displayInfo = await sharp(buffer)
         .resize({ width: MAX_WIDTH, withoutEnlargement: true })
         .jpeg({ quality: QUALITY, progressive: true })
         .toFile(displayPath);
 
-      // 生成缩略图
       await sharp(buffer)
         .resize({ width: 600, withoutEnlargement: true })
         .jpeg({ quality: 85 })
         .toFile(thumbPath);
 
-      // 获取原图信息
       const imgMeta = await sharp(buffer).metadata();
       const originalName = file.name;
-
       const meta = metadataList[i] || {};
       const title = meta.title || originalName.replace(/\.[^.]+$/, '');
       const description = meta.description || '';
-      const category = meta.category || 'uncategorized';
+      const category = meta.category || '未分类';
 
       const photo = {
         id,
@@ -80,17 +129,19 @@ export async function POST(request: NextRequest) {
         category,
         uploadedAt: new Date().toISOString(),
         width: displayInfo.width,
-        height: Math.round(imgMeta.height! * (displayInfo.width / imgMeta.width!)),
+        height: Math.round(
+          imgMeta.height! * (displayInfo.width / imgMeta.width!)
+        ),
         originalWidth: imgMeta.width || displayInfo.width,
         originalHeight: imgMeta.height || displayInfo.height,
         originalName,
       };
 
-      photos.push(photo);
+      allPhotos.push(photo);
       newPhotos.push(photo);
     }
 
-    writePhotos(photos);
+    addLocalPhotos(newPhotos);
     return NextResponse.json({ success: true, photos: newPhotos });
   } catch (err) {
     console.error('上传失败:', err);

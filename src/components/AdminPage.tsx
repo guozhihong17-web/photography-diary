@@ -1,6 +1,7 @@
 'use client';
 
 import { Photo } from '@/types';
+import { getPhotoSrc } from '@/lib/cloudinary-url';
 import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import { ToastContainer, toast } from '@/components/Toast';
@@ -341,7 +342,7 @@ export default function AdminPage() {
               {photos.map(photo => (
                 <div key={photo.id} className="bg-dark-900 border border-dark-800 rounded-sm overflow-hidden">
                   <img
-                    src={`/uploads/thumbnails/${photo.thumbFilename}`}
+                    src={getPhotoSrc(photo, 'thumb')}
                     alt={photo.title}
                     className="w-full h-32 object-cover"
                     loading="lazy"
