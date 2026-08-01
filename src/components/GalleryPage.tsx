@@ -8,7 +8,11 @@ import PhotoCard from '@/components/PhotoCard';
 import Lightbox from '@/components/Lightbox';
 import Footer from '@/components/Footer';
 
-export default function GalleryPage() {
+interface GalleryPageProps {
+  showHero?: boolean;
+}
+
+export default function GalleryPage({ showHero = true }: GalleryPageProps) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -40,7 +44,7 @@ export default function GalleryPage() {
         }
       />
 
-      <Hero />
+      {showHero && <Hero />}
 
       {/* 分类筛选 */}
       <nav className="flex justify-center flex-wrap gap-2 px-6 pb-10">
