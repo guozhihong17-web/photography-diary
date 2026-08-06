@@ -33,7 +33,12 @@ export default function GalleryPage({ showHero = true }: GalleryPageProps) {
 
   const filteredPhotos = useMemo(() => {
     if (activeCategory === 'all') return photos;
-    return photos.filter(p => p.category === activeCategory);
+    return photos.filter(p => {
+      if (p.categories && p.categories.length > 0) {
+        return p.categories.includes(activeCategory);
+      }
+      return p.category === activeCategory;
+    });
   }, [photos, activeCategory]);
 
   return (
