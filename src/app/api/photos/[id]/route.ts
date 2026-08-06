@@ -49,27 +49,36 @@ export async function PUT(
     return NextResponse.json({ error: '照片不存在' }, { status: 404 });
   }
 
-  // 云端照片 → 更新 Cloudinary context
+  const updates = {
+    title,
+    description,
+    category,
+    categories: categoryList.length > 0 ? categoryList : ['未分类'],
+  };
+
+  // 云端照片 → 更新 Cloudinary context（主要存储）
+  let cloudUpdated = false;
   if (photo.publicId && isCloudinaryConfigured()) {
     await updateImageContext(photo.publicId, {
       title,
       description,
       category: categoryStr || '未分类',
     });
+    cloudUpdated = true;
   }
 
-  // 同时更新本地记录（带上 categories 数组）
-  const result = updateLocalPhoto(id, {
-    title,
-    description,
-    category,
-    categories: categoryList.length > 0 ? categoryList : ['未分类'],
-  } as Parameters<typeof updateLocalPhoto>[1]);
-  if (!result) {
-    return NextResponse.json({ error: '更新失败' }, { status: 500 });
+  // 同时更新本地记录（Vercel 上文件系统只读时可能失败，不影响结果）
+  const localResult = updateLocalPhoto(id, updates as Parameters<typeof updateLocalPhoto>[1]);
+
+  // 云端已更新或本地已更新 → 成功
+  if (cloudUpdated || localResult) {
+    return NextResponse.json({
+      success: true,
+      photo: { ...photo, ...updates },
+    });
   }
 
-  return NextResponse.json({ success: true, photo: result });
+  return NextResponse.json({ error: '更新失败' }, { status: 500 });
 }
 
 // DELETE /api/photos/:id — 删除照片（需认证）
