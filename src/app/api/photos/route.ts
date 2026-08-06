@@ -11,6 +11,70 @@ import {
   getUploadsDir,
 } from '@/lib/photos';
 import { isCloudinaryConfigured, uploadImage } from '@/lib/cloudinary';
+import { PhotoExif } from '@/types';
+
+/** 从图片 buffer 提取 EXIF（相机型号、光圈、快门、ISO、焦距） */
+async function extractExif(buffer: Buffer): Promise<PhotoExif | undefined> {
+  try {
+    // 动态导入 exifr（ESM 兼容）
+    const exifr = await import('exifr');
+    const data = await exifr.parse(buffer, {
+      pick: ['Make', 'Model', 'LensModel', 'FNumber', 'ExposureTime', 'ISO', 'FocalLength', 'DateTimeOriginal'],
+    });
+    if (!data) return undefined;
+
+    const exif: PhotoExif = {};
+
+    // 相机型号
+    if (data.Model) {
+      exif.camera = data.Make ? `${data.Make} ${data.Model}`.trim() : data.Model;
+    }
+
+    // 镜头
+    if (data.LensModel) exif.lens = data.LensModel;
+
+    // 光圈
+    if (data.FNumber) {
+      const f = typeof data.FNumber === 'number' ? data.FNumber : parseFloat(data.FNumber);
+      exif.aperture = `f/${f.toFixed(1).replace(/\.0$/, '')}`;
+    }
+
+    // 快门
+    if (data.ExposureTime !== undefined) {
+      const et = data.ExposureTime;
+      if (et >= 1) {
+        exif.shutter = `${et}s`;
+      } else {
+        const denom = Math.round(1 / et);
+        exif.shutter = `1/${denom}s`;
+      }
+    }
+
+    // ISO
+    if (data.ISO !== undefined) exif.iso = data.ISO;
+
+    // 焦距
+    if (data.FocalLength) {
+      const fl = typeof data.FocalLength === 'number'
+        ? data.FocalLength
+        : parseFloat(data.FocalLength);
+      exif.focalLength = `${Math.round(fl)}mm`;
+    }
+
+    // 拍摄时间
+    if (data.DateTimeOriginal) {
+      exif.takenAt = data.DateTimeOriginal instanceof Date
+        ? data.DateTimeOriginal.toISOString()
+        : String(data.DateTimeOriginal);
+    }
+
+    // 只有提取到了至少两个字段才返回
+    const keys = Object.keys(exif).filter(k => (exif as Record<string, unknown>)[k] != null);
+    return keys.length >= 1 ? exif : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // GET /api/photos — 获取照片列表
 export async function GET(request: NextRequest) {
@@ -52,6 +116,9 @@ export async function POST(request: NextRequest) {
         const description = meta.description || '';
         const category = meta.category || '未分类';
 
+        // 从原始文件提取 EXIF
+        const exif = await extractExif(rawBuffer);
+
         // 先用 sharp 压缩，大幅减少上传体积
         const compressedBuffer = await sharp(rawBuffer)
           .resize({ width: MAX_WIDTH, withoutEnlargement: true })
@@ -79,6 +146,7 @@ export async function POST(request: NextRequest) {
           originalWidth: imgMeta.width || result.width || 0,
           originalHeight: imgMeta.height || result.height || 0,
           originalName,
+          exif,
         };
 
         addLocalPhotos([photo]);
@@ -113,6 +181,9 @@ export async function POST(request: NextRequest) {
       const displayPath = path.join(originalsDir, displayFilename);
       const thumbPath = path.join(thumbsDir, thumbFilename);
 
+      // 从原始文件提取 EXIF
+      const exif = await extractExif(buffer);
+
       const displayInfo = await sharp(buffer)
         .resize({ width: MAX_WIDTH, withoutEnlargement: true })
         .jpeg({ quality: QUALITY, progressive: true })
@@ -145,6 +216,7 @@ export async function POST(request: NextRequest) {
         originalWidth: imgMeta.width || displayInfo.width,
         originalHeight: imgMeta.height || displayInfo.height,
         originalName,
+        exif,
       };
 
       allPhotos.push(photo);

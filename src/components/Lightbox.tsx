@@ -53,6 +53,16 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
 
   const hasNav = photos.length > 1;
 
+  // EXIF 数据项
+  const exifItems = photo.exif ? [
+    { label: '相机', value: photo.exif.camera },
+    { label: '镜头', value: photo.exif.lens },
+    { label: '光圈', value: photo.exif.aperture },
+    { label: '快门', value: photo.exif.shutter },
+    { label: 'ISO', value: photo.exif.iso },
+    { label: '焦距', value: photo.exif.focalLength },
+  ].filter(item => item.value != null) : [];
+
   return (
     <div
       className="fixed inset-0 z-[1000] bg-black/96 animate-fade-in"
@@ -68,7 +78,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
       {/* 关闭按钮 */}
       <button
         onClick={onClose}
-        className="fixed top-6 right-6 z-[1002] w-12 h-12 flex items-center justify-center text-2xl text-gray-400 bg-white/8 rounded-full hover:bg-white/15 hover:text-white transition-all"
+        className="fixed top-6 right-6 z-[1002] w-12 h-12 flex items-center justify-center text-2xl text-dark-500 bg-white/8 rounded-full hover:bg-white/15 hover:text-white transition-all duration-300"
         aria-label="关闭"
       >
         ✕
@@ -82,7 +92,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             {hasNav && (
               <button
                 onClick={goPrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-[1001] w-12 h-12 flex items-center justify-center text-2xl text-gray-400 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all"
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-[1001] w-12 h-12 flex items-center justify-center text-2xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
                 aria-label="上一张"
               >
                 ‹
@@ -97,7 +107,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             {hasNav && (
               <button
                 onClick={goNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-[1001] w-12 h-12 flex items-center justify-center text-2xl text-gray-400 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all"
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-[1001] w-12 h-12 flex items-center justify-center text-2xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
                 aria-label="下一张"
               >
                 ›
@@ -107,18 +117,25 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
 
           {/* 右：信息面板 — 1/6 */}
           <div className="w-1/6 flex flex-col bg-dark-900/90 backdrop-blur-sm border-l border-dark-800 min-w-[200px]">
-            {/* 信息内容 */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              <h2 className="text-lg font-light tracking-wide leading-snug">
+            {/* 信息内容 — key 触发整体淡入 */}
+            <div key={photo.id} className="flex-1 overflow-y-auto p-6 space-y-5 animate-image-fade-in">
+              {/* 作品名称 */}
+              <h2 className="text-2xl md:text-3xl font-serif font-medium tracking-wide leading-tight">
                 {photo.title}
               </h2>
 
+              {/* 分类标签 — 金色强调 */}
+              <span className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
+                {photo.category || '未分类'}
+              </span>
+
+              {/* 描述 */}
               {photo.description ? (
                 <div>
-                  <p className="text-[10px] text-accent-gray uppercase tracking-widest mb-2">
-                    描述
+                  <p className="text-[10px] text-dark-500 uppercase tracking-widest mb-2">
+                    作品描述
                   </p>
-                  <p className="text-xs text-gray-300 leading-relaxed">
+                  <p className="text-sm text-gray-300 leading-relaxed">
                     {photo.description}
                   </p>
                 </div>
@@ -126,14 +143,33 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
                 <p className="text-xs text-dark-500 italic">暂无描述</p>
               )}
 
-              <span className="inline-block px-2.5 py-1 text-[10px] text-accent-gray bg-dark-800 rounded-full border border-dark-700">
-                {photo.category || '未分类'}
-              </span>
+              {/* EXIF 数据 */}
+              {exifItems.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-dark-500 uppercase tracking-widest mb-3">
+                    拍摄参数
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {exifItems.map((item) => (
+                      <div key={item.label} className="flex flex-col">
+                        <span className="text-[10px] text-dark-500">{item.label}</span>
+                        <span className="text-xs text-gray-300">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {photo.originalName && (
-                <p className="text-[10px] text-dark-500 pt-1 truncate">
-                  {photo.originalName}
-                </p>
+              {/* 图片尺寸 */}
+              {photo.originalWidth && photo.originalHeight && (
+                <div>
+                  <p className="text-[10px] text-dark-500 uppercase tracking-widest mb-2">
+                    图片尺寸
+                  </p>
+                  <p className="text-xs text-gray-300">
+                    {photo.originalWidth} × {photo.originalHeight}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -142,16 +178,16 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
               <div className="border-t border-dark-800 px-5 py-4 flex items-center justify-between">
                 <button
                   onClick={goPrev}
-                  className="text-xs text-accent-gray hover:text-white transition-colors"
+                  className="text-xs text-dark-500 hover:text-white transition-colors duration-300"
                 >
                   ‹ 上一张
                 </button>
-                <span className="text-xs text-dark-500 tabular-nums">
+                <span className="text-xs text-dark-500 tabular-nums tracking-wider">
                   {currentIndex + 1} / {photos.length}
                 </span>
                 <button
                   onClick={goNext}
-                  className="text-xs text-accent-gray hover:text-white transition-colors"
+                  className="text-xs text-dark-500 hover:text-white transition-colors duration-300"
                 >
                   下一张 ›
                 </button>
@@ -164,11 +200,11 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
       {/* ========== Mobile 布局（上下堆叠） ========== */}
       <div className="flex md:hidden flex-col h-full p-4">
         {/* 图片区域 */}
-        <div className="relative flex-1 flex items-center justify-center min-h-0 max-h-[58vh] rounded-xl overflow-hidden bg-dark-950">
+        <div className="relative flex-1 flex items-center justify-center min-h-0 max-h-[55vh] rounded-xl overflow-hidden bg-dark-950">
           {hasNav && (
             <button
               onClick={goPrev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-gray-400 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all"
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
               aria-label="上一张"
             >
               ‹
@@ -183,7 +219,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
           {hasNav && (
             <button
               onClick={goNext}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-gray-400 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all"
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
               aria-label="下一张"
             >
               ›
@@ -191,43 +227,54 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
           )}
         </div>
 
-        {/* 信息区域 */}
-        <div className="mt-3 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-5 space-y-4 max-h-[38vh] overflow-y-auto">
+        {/* 信息区域 — key 触发淡入 */}
+        <div key={photo.id} className="mt-3 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-5 space-y-3 max-h-[41vh] overflow-y-auto animate-image-fade-in">
           {/* 移动端翻页按钮 */}
           {hasNav && (
             <div className="flex items-center justify-between pb-3 border-b border-dark-800">
-              <button onClick={goPrev} className="text-sm text-accent-gray hover:text-white transition-colors">
+              <button onClick={goPrev} className="text-sm text-dark-500 hover:text-white transition-colors duration-300">
                 ‹ 上一张
               </button>
-              <span className="text-sm text-dark-500 tabular-nums">
+              <span className="text-sm text-dark-500 tabular-nums tracking-wider">
                 {currentIndex + 1} / {photos.length}
               </span>
-              <button onClick={goNext} className="text-sm text-accent-gray hover:text-white transition-colors">
+              <button onClick={goNext} className="text-sm text-dark-500 hover:text-white transition-colors duration-300">
                 下一张 ›
               </button>
             </div>
           )}
 
-          <h2 className="text-lg font-light tracking-wide leading-snug">
+          <h2 className="text-xl font-serif font-medium tracking-wide leading-tight">
             {photo.title}
           </h2>
 
-          {photo.description ? (
-            <div>
-              <p className="text-xs text-accent-gray uppercase tracking-widest mb-1.5">
-                描述
-              </p>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {photo.description}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-dark-500 italic">暂无描述</p>
-          )}
-
-          <span className="inline-block px-2.5 py-1 text-xs text-accent-gray bg-dark-800 rounded-full border border-dark-700">
+          <span className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
             {photo.category || '未分类'}
           </span>
+
+          {photo.description ? (
+            <div>
+              <p className="text-xs text-dark-500 uppercase tracking-widest mb-1.5">作品描述</p>
+              <p className="text-sm text-gray-300 leading-relaxed">{photo.description}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-dark-500 italic">暂无描述</p>
+          )}
+
+          {/* EXIF 数据（移动端） */}
+          {exifItems.length > 0 && (
+            <div>
+              <p className="text-xs text-dark-500 uppercase tracking-widest mb-2">拍摄参数</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {exifItems.map((item) => (
+                  <div key={item.label} className="flex gap-2">
+                    <span className="text-xs text-dark-500">{item.label}</span>
+                    <span className="text-xs text-gray-300">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -21,11 +21,12 @@ module.exports = {
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Microsoft YaHei"', '"Noto Sans SC"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+        serif: ['"Noto Serif SC"', '"PingFang SC"', '"Source Han Serif SC"', '"Noto Serif CJK SC"', 'Georgia', 'serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease',
         'toast-in': 'toastIn 0.3s ease',
-        'image-fade-in': 'imageFadeIn 0.25s ease',
+        'image-fade-in': 'imageFadeIn 0.35s ease',
       },
       keyframes: {
         fadeIn: {
