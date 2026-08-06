@@ -114,7 +114,14 @@ export async function POST(request: NextRequest) {
         const originalName = file.name;
         const title = meta.title || originalName.replace(/\.[^.]+$/, '');
         const description = meta.description || '';
-        const category = meta.category || '未分类';
+        // 支持多分类（逗号分隔）或单分类回退
+        const categoryRaw: string = meta.categories || meta.category || '';
+        const categoryStr = categoryRaw || '未分类';
+        const categories = categoryStr
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        const category = categories[0] || '未分类';
 
         // 从原始文件提取 EXIF
         const exif = await extractExif(rawBuffer);
@@ -130,7 +137,7 @@ export async function POST(request: NextRequest) {
         const result = await uploadImage(compressedBuffer, {
           title,
           description,
-          category,
+          category: categoryStr,
           originalName,
         });
 
@@ -140,6 +147,7 @@ export async function POST(request: NextRequest) {
           title,
           description,
           category,
+          categories,
           uploadedAt: new Date().toISOString(),
           width: result.width || imgMeta.width || 0,
           height: result.height || imgMeta.height || 0,
@@ -199,7 +207,13 @@ export async function POST(request: NextRequest) {
       const meta = metadataList[i] || {};
       const title = meta.title || originalName.replace(/\.[^.]+$/, '');
       const description = meta.description || '';
-      const category = meta.category || '未分类';
+      const categoryRaw: string = meta.categories || meta.category || '';
+      const categoryStr = categoryRaw || '未分类';
+      const categories = categoryStr
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const category = categories[0] || '未分类';
 
       const photo = {
         id,
@@ -208,6 +222,7 @@ export async function POST(request: NextRequest) {
         title,
         description,
         category,
+        categories,
         uploadedAt: new Date().toISOString(),
         width: displayInfo.width,
         height: Math.round(

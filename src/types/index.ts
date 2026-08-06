@@ -19,7 +19,10 @@ export interface Photo {
   thumbFilename?: string;
   title: string;
   description: string;
+  /** 主分类（兼容旧数据，取 categories[0]） */
   category: string;
+  /** 多分类标签 */
+  categories?: string[];
   uploadedAt: string;
   width: number;
   height: number;

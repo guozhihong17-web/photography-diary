@@ -20,9 +20,13 @@ export default function PhotoCard({ photo, onClick }: PhotoCardProps) {
       />
       <div className="absolute bottom-0 left-0 right-0 pt-10 px-4 pb-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <h3 className="text-sm font-medium">{photo.title}</h3>
-        <span className="inline-block mt-1 text-xs text-accent-gold bg-black/50 px-2 py-0.5 rounded-full">
-          {photo.category || '未分类'}
-        </span>
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {(photo.categories || [photo.category]).filter(Boolean).slice(0, 3).map(cat => (
+            <span key={cat} className="text-[10px] text-accent-gold bg-black/50 px-2 py-0.5 rounded-full">
+              {cat}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

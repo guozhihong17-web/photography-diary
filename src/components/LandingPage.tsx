@@ -22,7 +22,13 @@ export default function LandingPage() {
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
 
       {/* 中心内容 */}
-      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6">
+      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 gap-8">
+        <h1 className="text-5xl md:text-7xl font-serif font-light tracking-[0.15em] text-white text-center">
+          摄影日记
+        </h1>
+        <p className="text-sm md:text-base text-white/50 font-light tracking-[0.3em] uppercase -mt-4">
+          Photography Diary
+        </p>
         <Link
           href="/gallery"
           className="group relative inline-flex items-center gap-3 px-10 py-4 text-sm font-light tracking-[0.25em] text-white/90 uppercase border border-white/30 backdrop-blur-sm transition-all duration-500 hover:bg-white/10 hover:border-white/60 hover:px-12 hover:text-white"

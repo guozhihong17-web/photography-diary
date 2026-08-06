@@ -52,7 +52,7 @@ export function uploadImage(
         context: [
           `title=${metadata.title}`,
           `description=${metadata.description}`,
-          `category=${metadata.category}`,
+          `categories=${metadata.category}`,
           `originalName=${metadata.originalName}`,
         ].join('|'),
         resource_type: 'image',
@@ -87,7 +87,7 @@ export async function updateImageContext(
   const ctx: Record<string, string> = {};
   if (metadata.title) ctx.title = metadata.title;
   if (metadata.description) ctx.description = metadata.description;
-  if (metadata.category) ctx.category = metadata.category;
+  if (metadata.category) ctx.categories = metadata.category;
 
   const existing = await cloudinary.api.resource(publicId, { context: true });
   const merged = { ...(existing?.context?.custom || {}), ...ctx };
@@ -107,6 +107,7 @@ interface CloudinaryResource {
       title?: string;
       description?: string;
       category?: string;
+      categories?: string;
       originalName?: string;
     };
   };
@@ -136,12 +137,20 @@ export function resourceToPhoto(
   id: string
 ): import('@/types').Photo {
   const ctx = resource.context?.custom || {};
+
+  // 兼容新旧格式：categories（逗号分隔）优先，category 单值回退
+  const rawCategories = ctx.categories || ctx.category || '';
+  const categories = rawCategories
+    ? rawCategories.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+
   return {
     id,
     publicId: resource.public_id,
     title: ctx.title || resource.public_id.split('/').pop() || '',
     description: ctx.description || '',
-    category: ctx.category || '未分类',
+    category: categories[0] || '未分类',
+    categories: categories.length > 0 ? categories : ['未分类'],
     originalName: ctx.originalName || '',
     width: resource.width,
     height: resource.height,

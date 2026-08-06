@@ -33,7 +33,15 @@ export async function PUT(
 
   const { id } = await context.params;
   const body = await request.json();
-  const { title, description, category } = body;
+  const { title, description, categories } = body;
+
+  // 多分类：接收逗号分隔字符串
+  const categoryStr: string = categories || body.category || '';
+  const categoryList = categoryStr
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  const category = categoryList[0] || '未分类';
 
   const photos = await readPhotos();
   const photo = getPhotoById(photos, id);
@@ -43,11 +51,20 @@ export async function PUT(
 
   // 云端照片 → 更新 Cloudinary context
   if (photo.publicId && isCloudinaryConfigured()) {
-    await updateImageContext(photo.publicId, { title, description, category });
+    await updateImageContext(photo.publicId, {
+      title,
+      description,
+      category: categoryStr || '未分类',
+    });
   }
 
-  // 同时更新本地记录
-  const result = updateLocalPhoto(id, { title, description, category });
+  // 同时更新本地记录（带上 categories 数组）
+  const result = updateLocalPhoto(id, {
+    title,
+    description,
+    category,
+    categories: categoryList.length > 0 ? categoryList : ['未分类'],
+  } as Parameters<typeof updateLocalPhoto>[1]);
   if (!result) {
     return NextResponse.json({ error: '更新失败' }, { status: 500 });
   }

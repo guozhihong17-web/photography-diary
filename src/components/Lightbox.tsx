@@ -125,9 +125,13 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
               </h2>
 
               {/* 分类标签 — 金色强调 */}
-              <span className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
-                {photo.category || '未分类'}
-              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
+                  <span key={cat} className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
+                    {cat}
+                  </span>
+                ))}
+              </div>
 
               {/* 描述 */}
               {photo.description ? (
@@ -248,9 +252,13 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             {photo.title}
           </h2>
 
-          <span className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
-            {photo.category || '未分类'}
-          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
+              <span key={cat} className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
+                {cat}
+              </span>
+            ))}
+          </div>
 
           {photo.description ? (
             <div>

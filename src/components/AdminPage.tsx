@@ -10,7 +10,8 @@ interface PendingFile {
   file: File;
   title: string;
   description: string;
-  category: string;
+  /** 逗号分隔的分类字符串，如 "风景,旅行,航拍" */
+  categories: string;
   preview: string;
 }
 
@@ -101,7 +102,7 @@ export default function AdminPage() {
       file,
       title: file.name.replace(/\.[^.]+$/, ''),
       description: '',
-      category: '',
+      categories: '',
       preview: URL.createObjectURL(file),
     }));
     setPendingFiles(prev => [...prev, ...newFiles]);
@@ -123,7 +124,7 @@ export default function AdminPage() {
       pendingFiles.map(item => ({
         title: item.title,
         description: item.description,
-        category: item.category,
+        categories: item.categories,
       }))
     ));
 
@@ -164,7 +165,7 @@ export default function AdminPage() {
     setEditPhoto(photo);
     setEditTitle(photo.title);
     setEditDesc(photo.description);
-    setEditCategory(photo.category);
+    setEditCategory(photo.categories?.join(', ') || photo.category);
   };
 
   // 保存编辑
@@ -177,7 +178,7 @@ export default function AdminPage() {
       body: JSON.stringify({
         title: editTitle,
         description: editDesc,
-        category: editCategory,
+        categories: editCategory,
       }),
     });
     if (res.ok) {
@@ -308,16 +309,16 @@ export default function AdminPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-accent-gray block mb-1">分类</label>
+                        <label className="text-xs text-accent-gray block mb-1">分类（逗号分隔）</label>
                         <input
                           type="text"
-                          value={item.category}
+                          value={item.categories}
                           onChange={(e) => {
                             const updated = [...pendingFiles];
-                            updated[index].category = e.target.value;
+                            updated[index].categories = e.target.value;
                             setPendingFiles(updated);
                           }}
-                          placeholder="如：风景、人像..."
+                          placeholder="如：风景,旅行,航拍"
                           className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded text-sm focus:outline-none focus:border-white"
                         />
                       </div>
@@ -364,8 +365,12 @@ export default function AdminPage() {
                   />
                   <div className="p-3">
                     <h4 className="text-sm font-medium truncate" title={photo.title}>{photo.title}</h4>
-                    <div className="flex justify-between items-center mt-2 text-xs text-dark-500">
-                      <span>{photo.category || '未分类'}</span>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
+                        <span key={cat} className="text-[10px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">
+                          {cat}
+                        </span>
+                      ))}
                     </div>
                     <div className="flex gap-1 mt-3">
                       <button
@@ -417,11 +422,12 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-accent-gray block mb-1">分类</label>
+                <label className="text-xs text-accent-gray block mb-1">分类（逗号分隔）</label>
                 <input
                   type="text"
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
+                  placeholder="如：风景,旅行,航拍"
                   className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded text-sm focus:outline-none focus:border-white"
                 />
               </div>

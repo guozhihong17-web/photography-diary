@@ -104,7 +104,7 @@ export function addLocalPhotos(newPhotos: Photo[]): Photo[] {
 
 export function updateLocalPhoto(
   id: string,
-  updates: Partial<Pick<Photo, 'title' | 'description' | 'category'>>
+  updates: Partial<Pick<Photo, 'title' | 'description' | 'category'>> & { categories?: string[] }
 ): Photo | null {
   const photos = readLocalPhotos();
   const index = photos.findIndex((p) => p.id === id);
@@ -114,6 +114,7 @@ export function updateLocalPhoto(
   if (updates.description !== undefined)
     photos[index].description = updates.description;
   if (updates.category !== undefined) photos[index].category = updates.category;
+  if (updates.categories !== undefined) photos[index].categories = updates.categories;
 
   writeLocalPhotos(photos);
   return photos[index];
@@ -149,7 +150,15 @@ export function deleteLocalPhoto(id: string): Photo | null {
 
 export async function getCategories(): Promise<string[]> {
   const photos = await readPhotos();
-  return [...new Set(photos.map((p) => p.category).filter(Boolean))];
+  const allCats = new Set<string>();
+  for (const p of photos) {
+    if (p.categories && p.categories.length > 0) {
+      p.categories.forEach(c => allCats.add(c));
+    } else if (p.category) {
+      allCats.add(p.category);
+    }
+  }
+  return [...allCats];
 }
 
 export async function getPhotosByCategory(category: string): Promise<Photo[]> {
@@ -157,7 +166,12 @@ export async function getPhotosByCategory(category: string): Promise<Photo[]> {
   const filtered =
     !category || category === 'all'
       ? photos
-      : photos.filter((p) => p.category === category);
+      : photos.filter((p) => {
+          if (p.categories && p.categories.length > 0) {
+            return p.categories.includes(category);
+          }
+          return p.category === category;
+        });
   return filtered.sort(
     (a, b) =>
       new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
