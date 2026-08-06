@@ -145,18 +145,28 @@ export default function AdminPage() {
     const orders = newPhotos.map((p, i) => ({ id: p.id, sortOrder: i }));
     newPhotos.forEach((p, i) => { p.sortOrder = i; });
 
+    // 乐观更新 UI
     setPhotos(newPhotos);
     setSaving(true);
 
     try {
-      await fetch('/api/photos/reorder', {
+      const res = await fetch('/api/photos/reorder', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orders }),
       });
-      toast('排序已保存');
+      const data = await res.json().catch(() => ({ error: '未知错误' }));
+      if (res.ok) {
+        // 使用服务器返回的排序结果（确保云端状态一致）
+        if (data.photos) setPhotos(data.photos);
+        toast('排序已保存');
+      } else {
+        toast(data.error || '排序保存失败', 'error');
+        loadPhotos(); // 还原服务器状态
+      }
     } catch {
       toast('排序保存失败', 'error');
+      loadPhotos();
     }
     setSaving(false);
   };

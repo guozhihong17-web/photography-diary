@@ -22,25 +22,29 @@ export async function PUT(request: NextRequest) {
   // 更新本地记录
   updateLocalPhotosOrder(orders);
 
-  // 更新 Cloudinary context（云端主要存储）
+  // 更新 Cloudinary context（逐个处理，避免并行限流）
   if (isCloudinaryConfigured()) {
     const photos = await readPhotos();
     const photoMap = new Map(photos.map(p => [p.id, p]));
 
-    const results = await Promise.allSettled(
-      orders.map(async ({ id, sortOrder }) => {
-        const photo = photoMap.get(id);
-        if (photo?.publicId) {
+    let failed = 0;
+    for (const { id, sortOrder } of orders) {
+      const photo = photoMap.get(id);
+      if (photo?.publicId) {
+        try {
           await updateImageContext(photo.publicId, { sortOrder });
+        } catch (err) {
+          failed++;
+          console.error(`[reorder] Cloudinary 更新失败: ${id}`, err);
         }
-      })
-    );
-
-    const failed = results.filter(r => r.status === 'rejected').length;
+      }
+    }
     if (failed > 0) {
       console.error(`[reorder] ${failed}/${orders.length} Cloudinary 更新失败`);
     }
   }
 
-  return NextResponse.json({ success: true });
+  // 返回更新后的照片列表
+  const updatedPhotos = await readPhotos();
+  return NextResponse.json({ success: true, photos: updatedPhotos });
 }
