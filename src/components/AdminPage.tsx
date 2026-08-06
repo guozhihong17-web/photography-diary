@@ -26,8 +26,6 @@ export default function AdminPage() {
   const [editDesc, setEditDesc] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
   const [categoryList, setCategoryList] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -99,73 +97,55 @@ export default function AdminPage() {
     setAuthenticated(false);
   };
 
-  // ========== 拖拽排序照片 ==========
+  // ========== 照片排序（上下箭头） ==========
 
-  const handleDragStart = (e: React.DragEvent, photoId: string) => {
-    setDragId(photoId);
-    e.dataTransfer.effectAllowed = 'move';
-    (e.currentTarget as HTMLElement).classList.add('opacity-40');
-  };
+  const handleMovePhoto = async (photoId: string, direction: 'up' | 'down') => {
+    const idx = photos.findIndex(p => p.id === photoId);
+    if (idx === -1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= photos.length) return;
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    setDragId(null);
-    setDragOverId(null);
-    (e.currentTarget as HTMLElement).classList.remove('opacity-40');
-  };
+    // 交换两个相邻照片的 sortOrder
+    const photo = photos[idx];
+    const swapPhoto = photos[swapIdx];
+    const orderA = photo.sortOrder ?? idx;
+    const orderB = swapPhoto.sortOrder ?? swapIdx;
 
-  const handleDragOver = (e: React.DragEvent, photoId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragId && dragId !== photoId) {
-      setDragOverId(photoId);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverId(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    setDragOverId(null);
-
-    if (!dragId || dragId === targetId) return;
-
-    const newPhotos = [...photos];
-    const dragIdx = newPhotos.findIndex(p => p.id === dragId);
-    const targetIdx = newPhotos.findIndex(p => p.id === targetId);
-
-    if (dragIdx === -1 || targetIdx === -1) return;
-
-    // 移动照片
-    const [moved] = newPhotos.splice(dragIdx, 1);
-    newPhotos.splice(targetIdx, 0, moved);
-
-    // 重新分配 sortOrder
-    const orders = newPhotos.map((p, i) => ({ id: p.id, sortOrder: i }));
-    newPhotos.forEach((p, i) => { p.sortOrder = i; });
-
-    // 乐观更新 UI
-    setPhotos(newPhotos);
+    // 乐观更新
+    const updated = [...photos];
+    updated[idx] = { ...photo, sortOrder: orderB };
+    updated[swapIdx] = { ...swapPhoto, sortOrder: orderA };
+    // 重排
+    updated.sort((a, b) => {
+      const aOrder = a.sortOrder ?? Infinity;
+      const bOrder = b.sortOrder ?? Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+    });
+    setPhotos(updated);
     setSaving(true);
 
     try {
       const res = await fetch('/api/photos/reorder', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orders }),
+        body: JSON.stringify({
+          orders: [
+            { id: photo.id, sortOrder: orderB },
+            { id: swapPhoto.id, sortOrder: orderA },
+          ],
+        }),
       });
-      const data = await res.json().catch(() => ({ error: '未知错误' }));
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        // 使用服务器返回的排序结果（确保云端状态一致）
         if (data.photos) setPhotos(data.photos);
         toast('排序已保存');
       } else {
-        toast(data.error || '排序保存失败', 'error');
-        loadPhotos(); // 还原服务器状态
+        toast(data.error || '保存失败', 'error');
+        loadPhotos();
       }
     } catch {
-      toast('排序保存失败', 'error');
+      toast('保存失败', 'error');
       loadPhotos();
     }
     setSaving(false);
@@ -526,29 +506,36 @@ export default function AdminPage() {
             <div className="text-center py-10 text-dark-500">还没有上传任何照片</div>
           ) : (
             <>
-              <p className="text-xs text-dark-500 mb-4">拖拽照片可调整排序，或点击编辑/删除</p>
+              <p className="text-xs text-dark-500 mb-4">点击 ↑↓ 按钮调整照片排序</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                {photos.map(photo => (
+                {photos.map((photo, idx) => (
                   <div
                     key={photo.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, photo.id)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleDragOver(e, photo.id)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, photo.id)}
-                    className={`bg-dark-900 border rounded-sm overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
-                      dragId === photo.id ? 'opacity-40' : ''
-                    } ${
-                      dragOverId === photo.id
-                        ? 'border-accent-gold scale-[1.02] shadow-lg shadow-accent-gold/10'
-                        : 'border-dark-800'
-                    }`}
+                    className="bg-dark-900 border border-dark-800 rounded-sm overflow-hidden relative group"
                   >
+                    {/* 排序按钮 — 手机始终显示，桌面 hover 显示 */}
+                    <div className="absolute top-1 right-1 z-10 flex flex-col gap-px opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMovePhoto(photo.id, 'up'); }}
+                        disabled={idx === 0}
+                        className="w-6 h-5 flex items-center justify-center text-xs bg-dark-800/90 hover:bg-dark-700 rounded-t text-dark-400 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                        title="上移"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMovePhoto(photo.id, 'down'); }}
+                        disabled={idx === photos.length - 1}
+                        className="w-6 h-5 flex items-center justify-center text-xs bg-dark-800/90 hover:bg-dark-700 rounded-b text-dark-400 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                        title="下移"
+                      >
+                        ▼
+                      </button>
+                    </div>
                     <img
                       src={getPhotoSrc(photo, 'thumb')}
                       alt={photo.title}
-                      className="w-full h-32 object-cover pointer-events-none"
+                      className="w-full h-32 object-cover"
                       loading="lazy"
                     />
                     <div className="p-3">
@@ -562,13 +549,13 @@ export default function AdminPage() {
                       </div>
                       <div className="flex gap-1 mt-3">
                         <button
-                          onClick={(e) => { e.stopPropagation(); openEdit(photo); }}
+                          onClick={() => openEdit(photo)}
                           className="flex-1 text-xs py-1.5 border border-dark-600 rounded hover:border-white transition-colors"
                         >
                           编辑
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(photo.id); }}
+                          onClick={() => handleDelete(photo.id)}
                           className="flex-1 text-xs py-1.5 bg-red-900/30 text-red-400 border border-red-800/50 rounded hover:bg-red-900/50 transition-colors"
                         >
                           删除
