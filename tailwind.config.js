@@ -25,6 +25,7 @@ module.exports = {
       animation: {
         'fade-in': 'fadeIn 0.3s ease',
         'toast-in': 'toastIn 0.3s ease',
+        'image-fade-in': 'imageFadeIn 0.25s ease',
       },
       keyframes: {
         fadeIn: {
@@ -34,6 +35,10 @@ module.exports = {
         toastIn: {
           '0%': { opacity: '0', transform: 'translateX(40px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        imageFadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         },
       },
     },
