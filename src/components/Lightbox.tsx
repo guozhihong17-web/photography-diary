@@ -201,14 +201,14 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
         </div>
       </div>
 
-      {/* ========== Mobile 布局（上下堆叠） ========== */}
-      <div className="flex md:hidden flex-col h-full p-3">
-        {/* 图片区域 — 居中 */}
-        <div className="relative flex-[3] flex items-center justify-center min-h-0 rounded-xl overflow-hidden bg-dark-950 mx-auto w-full">
+      {/* ========== Mobile 布局（照片居中 + 底部精简信息卡） ========== */}
+      <div className="flex md:hidden flex-col h-full">
+        {/* 照片区域 — 占绝大部分空间，水平和竖直方向都居中 */}
+        <div className="relative flex-1 flex items-center justify-center mx-4 mt-4 mb-2 rounded-xl overflow-hidden bg-dark-950/50">
           {hasNav && (
             <button
               onClick={goPrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-[1001] w-8 h-8 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full hover:bg-black/60 hover:text-white transition-all duration-300"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[1001] w-9 h-9 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full active:bg-black/60 active:text-white transition-all"
               aria-label="上一张"
             >
               ‹
@@ -218,12 +218,12 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             key={photo.id}
             src={getPhotoSrc(photo, 'display')}
             alt={photo.title}
-            className="max-w-full max-h-full object-contain px-10 animate-image-fade-in"
+            className="max-w-[calc(100%-3rem)] max-h-[calc(100%-1rem)] object-contain animate-image-fade-in"
           />
           {hasNav && (
             <button
               onClick={goNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-[1001] w-8 h-8 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full hover:bg-black/60 hover:text-white transition-all duration-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[1001] w-9 h-9 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full active:bg-black/60 active:text-white transition-all"
               aria-label="下一张"
             >
               ›
@@ -231,58 +231,52 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
           )}
         </div>
 
-        {/* 信息区域 */}
-        <div key={photo.id} className="flex-[2] mt-2 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-4 space-y-2.5 overflow-y-auto animate-image-fade-in min-h-0">
-          {/* 移动端翻页按钮 */}
-          {hasNav && (
-            <div className="flex items-center justify-between pb-2.5 border-b border-dark-800">
-              <button onClick={goPrev} className="text-sm text-dark-500 hover:text-white transition-colors duration-300">
-                ‹ 上一张
-              </button>
-              <span className="text-sm text-dark-500 tabular-nums tracking-wider">
-                {currentIndex + 1} / {photos.length}
-              </span>
-              <button onClick={goNext} className="text-sm text-dark-500 hover:text-white transition-colors duration-300">
-                下一张 ›
-              </button>
+        {/* 底部信息卡 — 紧凑，自动高度 */}
+        <div key={photo.id} className="mx-4 mb-4 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-4 animate-image-fade-in">
+          {/* 标题 + 分类在同一行 */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h2 className="text-base font-serif font-medium tracking-wide leading-tight truncate">
+              {photo.title}
+            </h2>
+            <div className="flex gap-1 shrink-0">
+              {(photo.categories || [photo.category]).filter(Boolean).slice(0, 2).map(cat => (
+                <span key={cat} className="inline-block px-2 py-0.5 text-[10px] bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full whitespace-nowrap">
+                  {cat}
+                </span>
+              ))}
             </div>
-          )}
-
-          <h2 className="text-lg font-serif font-medium tracking-wide leading-tight">
-            {photo.title}
-          </h2>
-
-          <div className="flex flex-wrap gap-1.5">
-            {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
-              <span key={cat} className="inline-block px-3 py-1 text-xs bg-accent-gold/15 text-accent-gold border border-accent-gold/30 rounded-full">
-                {cat}
-              </span>
-            ))}
           </div>
 
-          {photo.description ? (
-            <div>
-              <p className="text-xs text-dark-500 uppercase tracking-widest mb-1.5">作品描述</p>
-              <p className="text-sm text-gray-300 leading-relaxed">{photo.description}</p>
-            </div>
-          ) : (
-            <p className="text-xs text-dark-500 italic">暂无描述</p>
+          {/* 描述（可选，最多两行） */}
+          {photo.description && (
+            <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 mb-2">
+              {photo.description}
+            </p>
           )}
 
-          {/* EXIF 数据（移动端） */}
-          {exifItems.length > 0 && (
-            <div>
-              <p className="text-xs text-dark-500 uppercase tracking-widest mb-2">拍摄参数</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                {exifItems.map((item) => (
-                  <div key={item.label} className="flex gap-2">
-                    <span className="text-xs text-dark-500">{item.label}</span>
-                    <span className="text-xs text-gray-300">{item.value}</span>
-                  </div>
-                ))}
+          {/* 翻页 + EXIF 精简行 */}
+          <div className="flex items-center justify-between text-xs text-dark-500">
+            {hasNav ? (
+              <div className="flex items-center gap-3">
+                <button onClick={goPrev} className="hover:text-white transition-colors">‹ 上一张</button>
+                <span className="tabular-nums">{currentIndex + 1}/{photos.length}</span>
+                <button onClick={goNext} className="hover:text-white transition-colors">下一张 ›</button>
               </div>
-            </div>
-          )}
+            ) : (
+              <span>1/1</span>
+            )}
+            {exifItems.length > 0 && (
+              <span className="text-dark-500 hidden sm:inline">
+                {[
+                  photo.exif?.camera?.replace(/^.*\s/, ''),
+                  photo.exif?.aperture,
+                  photo.exif?.shutter,
+                  photo.exif?.iso && `ISO${photo.exif.iso}`,
+                  photo.exif?.focalLength,
+                ].filter(Boolean).join(' · ')}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
