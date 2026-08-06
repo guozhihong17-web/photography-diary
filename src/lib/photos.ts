@@ -12,9 +12,14 @@ const STORAGE_BASE =
 const DATA_DIR = path.join(process.cwd(), 'data');
 const PHOTOS_FILE = path.join(DATA_DIR, 'photos.json');
 
-/** 安全写入（Vercel 文件系统只读时静默失败） */
+/** 安全写入（Vercel 文件系统只读时记录日志但不中断请求） */
 function safeWrite(fn: () => void): void {
-  try { fn(); } catch { /* Vercel 只读文件系统，静默跳过 */ }
+  try {
+    fn();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[safeWrite] 写入失败（文件系统只读？）:', msg);
+  }
 }
 
 function ensureDataDir() {

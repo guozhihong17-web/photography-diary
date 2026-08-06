@@ -35,14 +35,16 @@ export async function POST(request: NextRequest) {
     const useCloudinary = isCloudinaryConfigured();
 
     if (useCloudinary) {
-      // ====== Cloudinary 上传路径 ======
+      // ====== Cloudinary 上传路径（先 sharp 压缩再上传，减少体积加速）======
+      const MAX_WIDTH = parseInt(process.env.IMAGE_MAX_WIDTH || '2400');
+      const QUALITY = parseInt(process.env.IMAGE_QUALITY || '80');
       const newPhotos = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (!(file instanceof File)) continue;
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const rawBuffer = Buffer.from(await file.arrayBuffer());
         const id = uuidv4();
         const meta = metadataList[i] || {};
         const originalName = file.name;
@@ -50,7 +52,15 @@ export async function POST(request: NextRequest) {
         const description = meta.description || '';
         const category = meta.category || '未分类';
 
-        const result = await uploadImage(buffer, {
+        // 先用 sharp 压缩，大幅减少上传体积
+        const compressedBuffer = await sharp(rawBuffer)
+          .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+          .jpeg({ quality: QUALITY, progressive: true })
+          .toBuffer();
+
+        const imgMeta = await sharp(compressedBuffer).metadata();
+
+        const result = await uploadImage(compressedBuffer, {
           title,
           description,
           category,
@@ -64,10 +74,10 @@ export async function POST(request: NextRequest) {
           description,
           category,
           uploadedAt: new Date().toISOString(),
-          width: result.width,
-          height: result.height,
-          originalWidth: result.width,
-          originalHeight: result.height,
+          width: result.width || imgMeta.width || 0,
+          height: result.height || imgMeta.height || 0,
+          originalWidth: imgMeta.width || result.width || 0,
+          originalHeight: imgMeta.height || result.height || 0,
           originalName,
         };
 
@@ -144,7 +154,11 @@ export async function POST(request: NextRequest) {
     addLocalPhotos(newPhotos);
     return NextResponse.json({ success: true, photos: newPhotos });
   } catch (err) {
-    console.error('上传失败:', err);
-    return NextResponse.json({ error: '上传处理失败' }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('上传失败:', message, err);
+    return NextResponse.json(
+      { error: `上传处理失败: ${message}` },
+      { status: 500 }
+    );
   }
 }

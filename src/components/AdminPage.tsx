@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   // 检查登录状态
   useEffect(() => {
@@ -53,6 +54,10 @@ export default function AdminPage() {
     e.preventDefault();
     const form = e.currentTarget;
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+    if (!password) {
+      setLoginError('请输入密码');
+      return;
+    }
     try {
       const res = await fetch('/api/login', {
         method: 'POST',
@@ -61,10 +66,13 @@ export default function AdminPage() {
       });
       if (res.ok) {
         setAuthenticated(true);
+        setLoginError('');
       } else {
+        setLoginError('密码错误，请重试');
         toast('密码错误', 'error');
       }
     } catch {
+      setLoginError('网络错误，请稍后重试');
       toast('网络错误', 'error');
     }
   };
@@ -130,10 +138,11 @@ export default function AdminPage() {
         setPendingFiles([]);
         loadPhotos();
       } else {
-        toast('上传失败', 'error');
+        const data = await res.json().catch(() => ({ error: '未知错误' }));
+        toast(data.error || '上传失败', 'error');
       }
-    } catch {
-      toast('上传失败', 'error');
+    } catch (err) {
+      toast(`上传失败: ${err instanceof Error ? err.message : '网络错误'}`, 'error');
     }
     setUploading(false);
   };
@@ -202,11 +211,17 @@ export default function AdminPage() {
                 id="password"
                 name="password"
                 type="password"
-                className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded text-sm focus:outline-none focus:border-white transition-colors"
+                className={`w-full px-4 py-3 bg-dark-800 border rounded text-sm focus:outline-none transition-colors ${
+                  loginError ? 'border-red-500/60' : 'border-dark-600 focus:border-white'
+                }`}
                 placeholder="请输入管理密码"
                 required
                 autoFocus
+                onChange={() => setLoginError('')}
               />
+              {loginError && (
+                <p className="text-xs text-red-400 mt-2">{loginError}</p>
+              )}
             </div>
             <button type="submit" className="w-full py-3 bg-white text-dark-950 rounded text-sm font-medium hover:bg-gray-200 transition-colors">
               登录
