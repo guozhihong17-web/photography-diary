@@ -29,6 +29,7 @@ interface UploadParams {
   description: string;
   category: string;
   originalName: string;
+  sortOrder?: number;
 }
 
 interface UploadResult {
@@ -54,6 +55,7 @@ export function uploadImage(
           `description=${metadata.description}`,
           `categories=${metadata.category}`,
           `originalName=${metadata.originalName}`,
+          `sortOrder=${metadata.sortOrder ?? 0}`,
         ].join('|'),
         resource_type: 'image',
       },
@@ -80,7 +82,7 @@ export async function deleteImage(publicId: string): Promise<void> {
 
 export async function updateImageContext(
   publicId: string,
-  metadata: { title?: string; description?: string; category?: string }
+  metadata: { title?: string; description?: string; category?: string; sortOrder?: number }
 ): Promise<void> {
   if (!isCloudinaryConfigured()) throw new Error('Cloudinary 未配置');
 
@@ -88,6 +90,7 @@ export async function updateImageContext(
   if (metadata.title) ctx.title = metadata.title;
   if (metadata.description) ctx.description = metadata.description;
   if (metadata.category) ctx.categories = metadata.category;
+  if (metadata.sortOrder !== undefined) ctx.sortOrder = String(metadata.sortOrder);
 
   const existing = await cloudinary.api.resource(publicId, { context: true });
   const merged = { ...(existing?.context?.custom || {}), ...ctx };
@@ -109,6 +112,7 @@ interface CloudinaryResource {
       category?: string;
       categories?: string;
       originalName?: string;
+      sortOrder?: string;
     };
   };
   width: number;
@@ -144,6 +148,9 @@ export function resourceToPhoto(
     ? rawCategories.split(',').map((s: string) => s.trim()).filter(Boolean)
     : [];
 
+  const sortOrderRaw = ctx.sortOrder;
+  const sortOrder = sortOrderRaw !== undefined ? parseInt(sortOrderRaw, 10) : undefined;
+
   return {
     id,
     publicId: resource.public_id,
@@ -155,5 +162,6 @@ export function resourceToPhoto(
     width: resource.width,
     height: resource.height,
     uploadedAt: resource.created_at,
+    sortOrder: isNaN(sortOrder as number) ? undefined : sortOrder,
   };
 }

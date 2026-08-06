@@ -6,6 +6,7 @@ import {
   listCloudPhotos,
   resourceToPhoto,
 } from '@/lib/cloudinary';
+import { readCategoryOrderSync } from '@/lib/category-order';
 
 const STORAGE_BASE =
   process.env.STORAGE_DIR || path.join(process.cwd(), 'public');
@@ -54,6 +55,7 @@ function writeLocalPhotos(photos: Photo[]): void {
  */
 export async function readPhotos(): Promise<Photo[]> {
   const localPhotos = readLocalPhotos();
+  let merged: Photo[];
 
   if (isCloudinaryConfigured()) {
     const resources = await listCloudPhotos();
@@ -77,10 +79,20 @@ export async function readPhotos(): Promise<Photo[]> {
       (p) => !localPublicIds.has(p.publicId)
     );
 
-    return [...validLocalPhotos, ...newCloudPhotos];
+    merged = [...validLocalPhotos, ...newCloudPhotos];
+  } else {
+    merged = [...localPhotos];
   }
 
-  return localPhotos;
+  // 排序：sortOrder 升序（越小越前），无值的按上传时间降序
+  merged.sort((a, b) => {
+    const aOrder = a.sortOrder ?? Infinity;
+    const bOrder = b.sortOrder ?? Infinity;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+  });
+
+  return merged;
 }
 
 export function readLocalPhotosSync(): Photo[] {
@@ -118,6 +130,21 @@ export function updateLocalPhoto(
 
   writeLocalPhotos(photos);
   return photos[index];
+}
+
+/** 批量更新本地照片 sortOrder */
+export function updateLocalPhotosOrder(
+  orders: { id: string; sortOrder: number }[]
+): void {
+  const photos = readLocalPhotos();
+  const orderMap = new Map(orders.map(o => [o.id, o.sortOrder]));
+  for (const photo of photos) {
+    const newOrder = orderMap.get(photo.id);
+    if (newOrder !== undefined) {
+      photo.sortOrder = newOrder;
+    }
+  }
+  writeLocalPhotos(photos);
 }
 
 export function deleteLocalPhoto(id: string): Photo | null {
@@ -158,7 +185,23 @@ export async function getCategories(): Promise<string[]> {
       allCats.add(p.category);
     }
   }
-  return [...allCats];
+
+  // 尝试从 category-order.json 读取自定义排序
+  const categoryOrder = readCategoryOrderSync();
+  const ordered: string[] = [];
+  if (categoryOrder.length > 0) {
+    // 先按自定义顺序排列已配置的分类
+    for (const cat of categoryOrder) {
+      if (allCats.has(cat)) {
+        ordered.push(cat);
+        allCats.delete(cat);
+      }
+    }
+  }
+  // 未在配置中的新分类追加到末尾
+  ordered.push(...[...allCats]);
+
+  return ordered;
 }
 
 export async function getPhotosByCategory(category: string): Promise<Photo[]> {
@@ -172,10 +215,7 @@ export async function getPhotosByCategory(category: string): Promise<Photo[]> {
           }
           return p.category === category;
         });
-  return filtered.sort(
-    (a, b) =>
-      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-  );
+  return filtered;
 }
 
 export function getUploadsDir(): string {

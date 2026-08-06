@@ -31,6 +31,8 @@ export interface Photo {
   originalName: string;
   /** 相机 EXIF 信息（部分照片可能没有） */
   exif?: PhotoExif;
+  /** 显示排序，越小越靠前（存入 Cloudinary context） */
+  sortOrder?: number;
 }
 
 export interface ApiResponse<T = unknown> {

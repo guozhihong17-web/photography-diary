@@ -104,6 +104,14 @@ export async function POST(request: NextRequest) {
       const QUALITY = parseInt(process.env.IMAGE_QUALITY || '80');
       const newPhotos = [];
 
+      // 计算新照片的 sortOrder：排在最后
+      const existingPhotos = await readPhotos();
+      const maxOrder = existingPhotos.reduce(
+        (max, p) => Math.max(max, p.sortOrder ?? 0),
+        0
+      );
+      let nextOrder = maxOrder + 1;
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (!(file instanceof File)) continue;
@@ -139,6 +147,7 @@ export async function POST(request: NextRequest) {
           description,
           category: categoryStr,
           originalName,
+          sortOrder: nextOrder,
         });
 
         const photo = {
@@ -155,10 +164,12 @@ export async function POST(request: NextRequest) {
           originalHeight: imgMeta.height || result.height || 0,
           originalName,
           exif,
+          sortOrder: nextOrder,
         };
 
         addLocalPhotos([photo]);
         newPhotos.push(photo);
+        nextOrder++;
       }
 
       return NextResponse.json({ success: true, photos: newPhotos });
@@ -176,6 +187,11 @@ export async function POST(request: NextRequest) {
     });
 
     const allPhotos = await readPhotos();
+    const maxOrder = allPhotos.reduce(
+      (max, p) => Math.max(max, p.sortOrder ?? 0),
+      0
+    );
+    let nextOrder = maxOrder + 1;
     const newPhotos = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -232,10 +248,12 @@ export async function POST(request: NextRequest) {
         originalHeight: imgMeta.height || displayInfo.height,
         originalName,
         exif,
+        sortOrder: nextOrder,
       };
 
       allPhotos.push(photo);
       newPhotos.push(photo);
+      nextOrder++;
     }
 
     addLocalPhotos(newPhotos);

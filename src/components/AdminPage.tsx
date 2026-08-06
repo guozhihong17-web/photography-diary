@@ -26,6 +26,11 @@ export default function AdminPage() {
   const [editDesc, setEditDesc] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+  const [categoryList, setCategoryList] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
   // 检查登录状态
   useEffect(() => {
@@ -47,7 +52,17 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (authenticated) loadPhotos();
+    if (authenticated) {
+      loadPhotos();
+      // 加载分类排序
+      fetch('/api/categories/order')
+        .then(res => res.json())
+        .then(data => {
+          if (data.order) setCategoryList(data.order);
+          else if (data.categories) setCategoryList(data.categories);
+        })
+        .catch(() => {});
+    }
   }, [authenticated, loadPhotos]);
 
   // 登录
@@ -84,6 +99,90 @@ export default function AdminPage() {
     setAuthenticated(false);
   };
 
+  // ========== 拖拽排序照片 ==========
+
+  const handleDragStart = (e: React.DragEvent, photoId: string) => {
+    setDragId(photoId);
+    e.dataTransfer.effectAllowed = 'move';
+    (e.currentTarget as HTMLElement).classList.add('opacity-40');
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDragId(null);
+    setDragOverId(null);
+    (e.currentTarget as HTMLElement).classList.remove('opacity-40');
+  };
+
+  const handleDragOver = (e: React.DragEvent, photoId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragId && dragId !== photoId) {
+      setDragOverId(photoId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+
+    if (!dragId || dragId === targetId) return;
+
+    const newPhotos = [...photos];
+    const dragIdx = newPhotos.findIndex(p => p.id === dragId);
+    const targetIdx = newPhotos.findIndex(p => p.id === targetId);
+
+    if (dragIdx === -1 || targetIdx === -1) return;
+
+    // 移动照片
+    const [moved] = newPhotos.splice(dragIdx, 1);
+    newPhotos.splice(targetIdx, 0, moved);
+
+    // 重新分配 sortOrder
+    const orders = newPhotos.map((p, i) => ({ id: p.id, sortOrder: i }));
+    newPhotos.forEach((p, i) => { p.sortOrder = i; });
+
+    setPhotos(newPhotos);
+    setSaving(true);
+
+    try {
+      await fetch('/api/photos/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orders }),
+      });
+      toast('排序已保存');
+    } catch {
+      toast('排序保存失败', 'error');
+    }
+    setSaving(false);
+  };
+
+  // ========== 分类排序 ==========
+
+  const moveCategory = async (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= categoryList.length) return;
+
+    const newOrder = [...categoryList];
+    [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+    setCategoryList(newOrder);
+
+    try {
+      await fetch('/api/categories/order', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: newOrder }),
+      });
+      toast('分类排序已保存');
+    } catch {
+      toast('保存失败', 'error');
+    }
+  };
+
   // 文件处理
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -108,8 +207,8 @@ export default function AdminPage() {
     setPendingFiles(prev => [...prev, ...newFiles]);
   };
 
-  // 拖拽
-  const handleDrop = (e: React.DragEvent) => {
+  // 拖拽上传
+  const handleUploadDrop = (e: React.DragEvent) => {
     e.preventDefault();
     handleFiles(e.dataTransfer.files);
   };
@@ -259,7 +358,7 @@ export default function AdminPage() {
             className="border-2 border-dashed border-dark-600 rounded-lg p-16 text-center cursor-pointer transition-all hover:border-white hover:bg-dark-900"
             onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-white', 'bg-dark-900'); }}
             onDragLeave={(e) => { e.currentTarget.classList.remove('border-white', 'bg-dark-900'); }}
-            onDrop={(e) => { e.currentTarget.classList.remove('border-white', 'bg-dark-900'); handleDrop(e); }}
+            onDrop={(e) => { e.currentTarget.classList.remove('border-white', 'bg-dark-900'); handleUploadDrop(e); }}
             onClick={() => document.getElementById('fileInput')?.click()}
           >
             <div className="text-5xl opacity-40 mb-3">📤</div>
@@ -347,49 +446,129 @@ export default function AdminPage() {
 
         {/* 管理区域 */}
         <section>
-          <h3 className="text-lg font-normal tracking-wider mb-5 pb-3 border-b border-dark-800">
-            管理照片 ({photos.length})
-          </h3>
+          {/* 分类排序面板 */}
+          <div className="mb-8">
+            <button
+              onClick={() => setShowCategoryPanel(!showCategoryPanel)}
+              className="text-lg font-normal tracking-wider pb-3 border-b border-dark-800 w-full text-left flex items-center justify-between hover:text-accent-gold transition-colors"
+            >
+              <span>分类管理 ({categoryList.length})</span>
+              <span className={`text-sm transition-transform ${showCategoryPanel ? 'rotate-90' : ''}`}>›</span>
+            </button>
+            {showCategoryPanel && (
+              <div className="mt-4 bg-dark-900 border border-dark-800 rounded-lg p-4">
+                <p className="text-xs text-dark-500 mb-3">拖拽可调整分类在首页的显示顺序</p>
+                {categoryList.length === 0 ? (
+                  <p className="text-sm text-dark-500">暂无分类</p>
+                ) : (
+                  <div className="space-y-1">
+                    {categoryList.map((cat, idx) => {
+                      const count = photos.filter(p =>
+                        (p.categories || [p.category]).includes(cat)
+                      ).length;
+                      return (
+                        <div
+                          key={cat}
+                          className="flex items-center justify-between bg-dark-800 rounded px-4 py-2.5"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-dark-500 text-xs w-5">{idx + 1}</span>
+                            <span className="text-sm">{cat}</span>
+                            <span className="text-xs text-dark-500">({count} 张)</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => moveCategory(idx, -1)}
+                              disabled={idx === 0}
+                              className="w-7 h-7 flex items-center justify-center rounded border border-dark-600 text-dark-400 hover:text-white hover:border-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="上移"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => moveCategory(idx, 1)}
+                              disabled={idx === categoryList.length - 1}
+                              className="w-7 h-7 flex items-center justify-center rounded border border-dark-600 text-dark-400 hover:text-white hover:border-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="下移"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pb-3 border-b border-dark-800 mb-5">
+            <h3 className="text-lg font-normal tracking-wider">
+              管理照片 ({photos.length})
+            </h3>
+            {saving && (
+              <span className="text-xs text-accent-gold animate-pulse">保存中...</span>
+            )}
+          </div>
 
           {photos.length === 0 ? (
             <div className="text-center py-10 text-dark-500">还没有上传任何照片</div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {photos.map(photo => (
-                <div key={photo.id} className="bg-dark-900 border border-dark-800 rounded-sm overflow-hidden">
-                  <img
-                    src={getPhotoSrc(photo, 'thumb')}
-                    alt={photo.title}
-                    className="w-full h-32 object-cover"
-                    loading="lazy"
-                  />
-                  <div className="p-3">
-                    <h4 className="text-sm font-medium truncate" title={photo.title}>{photo.title}</h4>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
-                        <span key={cat} className="text-[10px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">
-                          {cat}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex gap-1 mt-3">
-                      <button
-                        onClick={() => openEdit(photo)}
-                        className="flex-1 text-xs py-1.5 border border-dark-600 rounded hover:border-white transition-colors"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={() => handleDelete(photo.id)}
-                        className="flex-1 text-xs py-1.5 bg-red-900/30 text-red-400 border border-red-800/50 rounded hover:bg-red-900/50 transition-colors"
-                      >
-                        删除
-                      </button>
+            <>
+              <p className="text-xs text-dark-500 mb-4">拖拽照片可调整排序，或点击编辑/删除</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {photos.map(photo => (
+                  <div
+                    key={photo.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, photo.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, photo.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, photo.id)}
+                    className={`bg-dark-900 border rounded-sm overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
+                      dragId === photo.id ? 'opacity-40' : ''
+                    } ${
+                      dragOverId === photo.id
+                        ? 'border-accent-gold scale-[1.02] shadow-lg shadow-accent-gold/10'
+                        : 'border-dark-800'
+                    }`}
+                  >
+                    <img
+                      src={getPhotoSrc(photo, 'thumb')}
+                      alt={photo.title}
+                      className="w-full h-32 object-cover pointer-events-none"
+                      loading="lazy"
+                    />
+                    <div className="p-3">
+                      <h4 className="text-sm font-medium truncate" title={photo.title}>{photo.title}</h4>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(photo.categories || [photo.category]).filter(Boolean).map(cat => (
+                          <span key={cat} className="text-[10px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-1 mt-3">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEdit(photo); }}
+                          className="flex-1 text-xs py-1.5 border border-dark-600 rounded hover:border-white transition-colors"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(photo.id); }}
+                          className="flex-1 text-xs py-1.5 bg-red-900/30 text-red-400 border border-red-800/50 rounded hover:bg-red-900/50 transition-colors"
+                        >
+                          删除
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </section>
       </div>
