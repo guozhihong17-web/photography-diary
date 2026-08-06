@@ -105,23 +105,13 @@ export default function AdminPage() {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= photos.length) return;
 
-    // 交换两个相邻照片的 sortOrder
-    const photo = photos[idx];
-    const swapPhoto = photos[swapIdx];
-    const orderA = photo.sortOrder ?? idx;
-    const orderB = swapPhoto.sortOrder ?? swapIdx;
+    // 交换相邻位置
+    const orderedIds = photos.map(p => p.id);
+    [orderedIds[idx], orderedIds[swapIdx]] = [orderedIds[swapIdx], orderedIds[idx]];
 
-    // 乐观更新
+    // 乐观更新 UI
     const updated = [...photos];
-    updated[idx] = { ...photo, sortOrder: orderB };
-    updated[swapIdx] = { ...swapPhoto, sortOrder: orderA };
-    // 重排
-    updated.sort((a, b) => {
-      const aOrder = a.sortOrder ?? Infinity;
-      const bOrder = b.sortOrder ?? Infinity;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
-    });
+    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
     setPhotos(updated);
     setSaving(true);
 
@@ -129,12 +119,7 @@ export default function AdminPage() {
       const res = await fetch('/api/photos/reorder', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orders: [
-            { id: photo.id, sortOrder: orderB },
-            { id: swapPhoto.id, sortOrder: orderA },
-          ],
-        }),
+        body: JSON.stringify({ orderedIds }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {

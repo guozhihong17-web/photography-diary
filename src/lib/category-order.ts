@@ -3,56 +3,47 @@ import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const ORDER_FILE = path.join(DATA_DIR, 'category-order.json');
+const TMP_ORDER_FILE = '/tmp/category-order.json';
 
-/** 安全写入（Vercel 文件系统只读时记录日志但不中断请求） */
 function safeWrite(fn: () => void): void {
   try {
     fn();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error('[safeWrite] 写入失败（文件系统只读？）:', msg);
+    console.error('[category-order safeWrite] 写入失败:', msg);
   }
 }
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    safeWrite(() => fs.mkdirSync(DATA_DIR, { recursive: true }));
-  }
-}
-
-interface CategoryOrderData {
-  order: string[];
-}
-
-function readFile(): CategoryOrderData {
+function readOrderFile(filePath: string): string[] {
   try {
-    ensureDataDir();
-    if (!fs.existsSync(ORDER_FILE)) return { order: [] };
-    const raw = fs.readFileSync(ORDER_FILE, 'utf-8');
-    return JSON.parse(raw);
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : (data.order || []);
   } catch {
-    return { order: [] };
+    return [];
   }
 }
 
-function writeFile(data: CategoryOrderData): void {
-  safeWrite(() => {
-    ensureDataDir();
-    fs.writeFileSync(ORDER_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  });
-}
-
-/** 读取分类排序列表 */
+/** 读取分类排序列表（/tmp 优先，回退到 data/） */
 export function readCategoryOrder(): string[] {
-  return readFile().order;
+  const tmpOrder = readOrderFile(TMP_ORDER_FILE);
+  if (tmpOrder.length > 0) return tmpOrder;
+  return readOrderFile(ORDER_FILE);
 }
 
-/** 同步版本（供 readPhotos 等同步上下文使用） */
+/** 同步版本 */
 export function readCategoryOrderSync(): string[] {
   return readCategoryOrder();
 }
 
 /** 保存分类排序列表 */
 export function saveCategoryOrder(order: string[]): void {
-  writeFile({ order });
+  safeWrite(() => {
+    fs.writeFileSync(TMP_ORDER_FILE, JSON.stringify(order), 'utf-8');
+  });
+  safeWrite(() => {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(ORDER_FILE, JSON.stringify({ order }, null, 2), 'utf-8');
+  });
 }

@@ -7,6 +7,7 @@ import {
   resourceToPhoto,
 } from '@/lib/cloudinary';
 import { readCategoryOrderSync } from '@/lib/category-order';
+import { readPhotoOrder } from '@/lib/photo-order';
 
 const STORAGE_BASE =
   process.env.STORAGE_DIR || path.join(process.cwd(), 'public');
@@ -84,13 +85,30 @@ export async function readPhotos(): Promise<Photo[]> {
     merged = [...localPhotos];
   }
 
-  // 排序：sortOrder 升序（越小越前），无值的按上传时间降序
-  merged.sort((a, b) => {
-    const aOrder = a.sortOrder ?? Infinity;
-    const bOrder = b.sortOrder ?? Infinity;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
-  });
+  // 排序：优先使用 photo-order.json，其次 sortOrder，最后上传时间
+  const photoOrder = readPhotoOrder();
+  if (photoOrder.length > 0) {
+    const orderMap = new Map(photoOrder.map((id, i) => [id, i]));
+    merged.sort((a, b) => {
+      const aIdx = orderMap.get(a.id);
+      const bIdx = orderMap.get(b.id);
+      if (aIdx !== undefined && bIdx !== undefined) return aIdx - bIdx;
+      if (aIdx !== undefined) return -1; // a 在排序列表中，b 不在 → a 在前
+      if (bIdx !== undefined) return 1;  // b 在排序列表中，a 不在 → b 在前
+      // 都不在排序列表中，按 sortOrder → uploadedAt 回退
+      const aOrder = a.sortOrder ?? Infinity;
+      const bOrder = b.sortOrder ?? Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+    });
+  } else {
+    merged.sort((a, b) => {
+      const aOrder = a.sortOrder ?? Infinity;
+      const bOrder = b.sortOrder ?? Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+    });
+  }
 
   return merged;
 }
