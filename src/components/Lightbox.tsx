@@ -202,13 +202,13 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
       </div>
 
       {/* ========== Mobile 布局（上下堆叠） ========== */}
-      <div className="flex md:hidden flex-col h-full p-4">
-        {/* 图片区域 */}
-        <div className="relative flex-1 flex items-center justify-center min-h-0 max-h-[55vh] rounded-xl overflow-hidden bg-dark-950">
+      <div className="flex md:hidden flex-col h-full p-3">
+        {/* 图片区域 — 居中 */}
+        <div className="relative flex-[3] flex items-center justify-center min-h-0 rounded-xl overflow-hidden bg-dark-950 mx-auto w-full">
           {hasNav && (
             <button
               onClick={goPrev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[1001] w-8 h-8 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full hover:bg-black/60 hover:text-white transition-all duration-300"
               aria-label="上一张"
             >
               ‹
@@ -218,12 +218,12 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             key={photo.id}
             src={getPhotoSrc(photo, 'display')}
             alt={photo.title}
-            className="max-w-full max-h-full object-contain animate-image-fade-in"
+            className="max-w-full max-h-full object-contain px-10 animate-image-fade-in"
           />
           {hasNav && (
             <button
               onClick={goNext}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-[1001] w-10 h-10 flex items-center justify-center text-xl text-dark-500 bg-white/6 rounded-full hover:bg-white/12 hover:text-white transition-all duration-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[1001] w-8 h-8 flex items-center justify-center text-lg text-white/40 bg-black/40 rounded-full hover:bg-black/60 hover:text-white transition-all duration-300"
               aria-label="下一张"
             >
               ›
@@ -231,11 +231,11 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
           )}
         </div>
 
-        {/* 信息区域 — key 触发淡入 */}
-        <div key={photo.id} className="mt-3 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-5 space-y-3 max-h-[41vh] overflow-y-auto animate-image-fade-in">
+        {/* 信息区域 */}
+        <div key={photo.id} className="flex-[2] mt-2 bg-dark-900/90 backdrop-blur-sm rounded-2xl px-5 py-4 space-y-2.5 overflow-y-auto animate-image-fade-in min-h-0">
           {/* 移动端翻页按钮 */}
           {hasNav && (
-            <div className="flex items-center justify-between pb-3 border-b border-dark-800">
+            <div className="flex items-center justify-between pb-2.5 border-b border-dark-800">
               <button onClick={goPrev} className="text-sm text-dark-500 hover:text-white transition-colors duration-300">
                 ‹ 上一张
               </button>
@@ -248,7 +248,7 @@ export default function Lightbox({ photos, currentIndex, onClose, onNavigate }: 
             </div>
           )}
 
-          <h2 className="text-xl font-serif font-medium tracking-wide leading-tight">
+          <h2 className="text-lg font-serif font-medium tracking-wide leading-tight">
             {photo.title}
           </h2>
 
