@@ -136,6 +136,60 @@ export async function listCloudPhotos(): Promise<CloudinaryResource[]> {
   }
 }
 
+// ==================== Photo Order Raw JSON (durable storage) ====================
+
+const ORDER_PUBLIC_ID = `${FOLDER}/photo-order`;
+
+/** 上传照片排序到 Cloudinary（raw JSON 文件，持久存储） */
+export async function uploadPhotoOrder(order: string[]): Promise<void> {
+  if (!isCloudinaryConfigured()) return;
+
+  const jsonBuffer = Buffer.from(JSON.stringify(order), 'utf-8');
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        public_id: ORDER_PUBLIC_ID,
+        resource_type: 'raw',
+        overwrite: true,
+        invalidate: true, // 清除 CDN 缓存，确保下次读取拿到最新
+      },
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      }
+    );
+    uploadStream.end(jsonBuffer);
+  });
+}
+
+/** 从 Cloudinary 读取照片排序，不存在则返回 null */
+export async function fetchPhotoOrder(): Promise<string[] | null> {
+  if (!isCloudinaryConfigured()) return null;
+
+  try {
+    // 先检查资源是否存在
+    await cloudinary.api.resource(ORDER_PUBLIC_ID, { resource_type: 'raw' });
+  } catch {
+    return null; // 资源不存在
+  }
+
+  try {
+    // 从 CDN URL 下载 JSON
+    const url = cloudinary.url(ORDER_PUBLIC_ID, {
+      resource_type: 'raw',
+      type: 'upload',
+      // 不加 version 参数，Cloudinary 会返回最新版本
+    });
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const order = await res.json();
+    return Array.isArray(order) ? order : null;
+  } catch {
+    return null;
+  }
+}
+
 export function resourceToPhoto(
   resource: CloudinaryResource,
   id: string

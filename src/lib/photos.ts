@@ -86,7 +86,7 @@ export async function readPhotos(): Promise<Photo[]> {
   }
 
   // 排序：优先使用 photo-order.json，其次 sortOrder，最后上传时间
-  const photoOrder = readPhotoOrder();
+  const photoOrder = await readPhotoOrder();
   if (photoOrder.length > 0) {
     const orderMap = new Map(photoOrder.map((id, i) => [id, i]));
     merged.sort((a, b) => {

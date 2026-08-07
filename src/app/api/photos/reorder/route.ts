@@ -16,8 +16,8 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: '参数格式错误' }, { status: 400 });
   }
 
-  // 保存到 photo-order.json（和 /tmp）
-  savePhotoOrder(orderedIds);
+  // 保存到 /tmp + data/ + Cloudinary（持久存储）
+  await savePhotoOrder(orderedIds);
 
   // 读取并返回排好序的照片列表
   const photos = await readPhotos();
